@@ -4,8 +4,15 @@ import os
 import shutil
 import re
 import configparser
+import subprocess
+import ctypes
 
 def find_and_remove_obfuscation(input_file_path, header_signatures):
+    """
+    查找并去除混淆
+    :param input_file_path: 输入文件路径
+    :param header_signatures: 特定标识符列表
+    """
     print(input_file_path)
     with open(input_file_path, 'rb') as input_file:
         input_data = input_file.read()
@@ -50,11 +57,11 @@ def find_and_remove_obfuscation(input_file_path, header_signatures):
                         deleted_chars = input_data[:input_data.find(header_signature)].hex().upper()
                         # 存储信息到 mate.ini
                         with open("mate.ini", 'a', encoding='utf-8') as mate_file:
-                            mate_file.write(f"{cab_char}-{file_name}-{deleted_chars}\n")
-                            print("数据已记录："f"{cab_char}-{file_name}-{deleted_chars}")
+                            mate_file.write(f"{cab_char}-{file_name}-{deleted_chars}-{input_file_path}\n")
+                            print("数据已记录："f"{cab_char}-{file_name}-{deleted_chars}-{input_file_path}")
                         # 备份文件到当前目录下，然后删除文件中特定标识符前面的字符，不包括标识符本身
-                        backup_file_path = input_file_path + ".backup"
-                        shutil.copyfile(input_file_path, backup_file_path)
+                        #backup_file_path = input_file_path + ".backup"
+                        #shutil.copyfile(input_file_path, backup_file_path)
                         with open(input_file_path, 'wb') as original_file:
                             original_file.write(input_data[input_data.find(header_signature):])
                         print("已完成去混淆")
@@ -64,6 +71,11 @@ def find_and_remove_obfuscation(input_file_path, header_signatures):
         print("不是标准的 Unity 文件")
 
 def restore_obfuscation(input_file_path, header_signatures):
+    """
+    还原混淆
+    :param input_file_path: 输入文件路径
+    :param header_signatures: 特定标识符列表
+    """
     with open(input_file_path, 'rb') as input_file:
         input_data = input_file.read()
 
@@ -104,7 +116,7 @@ def restore_obfuscation(input_file_path, header_signatures):
                                     content = renamed_file.read()
                                     renamed_file.seek(0)
                                     renamed_file.write(bytes.fromhex(deleted_chars_data) + content)
-                                print("已完成还原混淆")
+                                print(f"已完成还原混淆")
                             else:
                                 # 复制选中的文件并命名为mate.ini中"CAB-"后面字符的文件名称
                                 new_file_path = os.path.join(os.path.dirname(input_file_path), rename_filename)
@@ -131,6 +143,9 @@ def restore_obfuscation(input_file_path, header_signatures):
         print("无需还原混淆")
 
 def browse_and_remove_obfuscation():
+    """
+    浏览并去除混淆
+    """
     # 根据复选框状态选择文件对话框模式
     if subfolders_var.get():
         file_paths = filedialog.askopenfilenames(filetypes=[])
@@ -141,15 +156,24 @@ def browse_and_remove_obfuscation():
         if isinstance(file_paths, tuple):
             for file_path in file_paths:
                 process_remove_obfuscation(file_path)
+                open_mate_ini()
         else:
             process_remove_obfuscation(file_paths)
+            open_mate_ini()
 
 def process_remove_obfuscation(file_path):
+    """
+    处理去除混淆
+    :param file_path: 文件路径
+    """
     with open("head.ini", 'r', encoding='utf-8') as config_file:
         header_signatures = [bytes.fromhex(line.strip()) for line in config_file if line.strip()]
     find_and_remove_obfuscation(file_path, header_signatures)
 
 def browse_and_restore_obfuscation():
+    """
+    浏览并还原混淆
+    """
     # 根据复选框状态选择文件对话框模式
     if subfolders_var.get():
         file_paths = filedialog.askopenfilenames(filetypes=[])
@@ -164,14 +188,22 @@ def browse_and_restore_obfuscation():
             process_restore_obfuscation(file_paths)
 
 def process_restore_obfuscation(file_path):
+    """
+    处理还原混淆
+    :param file_path: 文件路径
+    """
     with open("head.ini", 'r', encoding='utf-8') as config_file:
         header_signatures = [bytes.fromhex(line.strip()) for line in config_file if line.strip()]
     restore_obfuscation(file_path, header_signatures)
 
 def search_files(event):
+    """
+    搜索文件
+    :param event: 事件对象
+    """
     query = search_var.get().strip().lower()
     file_listbox.delete(0, tk.END)
-    with open("mate.ini", "r") as file:
+    with open("mate.ini", "r", encoding="utf-8") as file:
         for line in file:
             match = re.search(r'-(.*?)-', line)
             if match:
@@ -179,18 +211,60 @@ def search_files(event):
                 if query in content_between_hyphens.lower():
                     file_listbox.insert(tk.END, content_between_hyphens)
 
-def open_mate_ini ():                   
-    # 打开 "mate.ini" 文件并逐行读取内容
-    with open("mate.ini", "r") as file:
+def open_file_location():
+    """
+    打开文件所在位置
+    """
+    selected_index = file_listbox.curselection()
+    if selected_index:
+        selected_file = file_listbox.get(selected_index)
+        with open("mate.ini", "r", encoding="utf-8") as file:
+            for line in file:
+                if selected_file in line:
+                    file_path = line.strip().split('-')[-1]
+                    folder_path = replace_slashes(file_path)
+                    # 打开文件所在位置
+                    subprocess.Popen(['explorer', '/select,', folder_path])
+
+def replace_slashes(text):
+    """
+    替换路径中的斜杠
+    :param text: 路径文本
+    :return: 替换斜杠后的文本
+    """
+    return text.replace('/', '\\')
+
+def show_context_menu(event):
+    """
+    显示右键菜单
+    :param event: 事件对象
+    """
+    try:
+        file_listbox.selection_clear(0, tk.END)
+        file_listbox.selection_set(file_listbox.nearest(event.y))
+        context_menu.post(event.x_root, event.y_root)
+    finally:
+        context_menu.grab_release()
+
+def open_mate_ini():
+    """
+    打开 "mate.ini" 文件并更新列表框内容
+    """
+    file_listbox.delete(0, tk.END)
+    with open("mate.ini", "r", encoding="utf-8") as file:
         for line in file:
             match = re.search(r'-(.*?)-', line)
             if match:
                 content_between_hyphens = match.group(1)
                 file_listbox.insert(0, content_between_hyphens)
-
+# 设置DPI感知
+ctypes.windll.shcore.SetProcessDpiAwareness(2)
 # 创建主窗口
 window = tk.Tk()
-window.title("unity文件建议去除和添加混淆工具")
+#window.tk.call('tk', 'scaling',1.2)  # 设置缩放因子为2.0，您可以根据实际需要调整
+
+
+window.title("Unity文件去混淆工具")
 window.geometry("620x300")
 window.minsize(500, 300)  # 设置最小尺寸
 
@@ -219,7 +293,7 @@ button2.grid(row=2, column=0, padx=10, pady=10)
 search_var = tk.StringVar()
 search_entry = tk.Entry(window, textvariable=search_var)
 search_entry.grid(row=0, column=2, padx=10, pady=10, sticky='ew')
-# 绑定键释放事
+# 绑定键释放事件
 search_entry.bind("<KeyRelease>", search_files)  
 
 # 创建已处理的文件标签
@@ -234,7 +308,7 @@ scrollbar.grid(row=2, column=3, rowspan=6, sticky='ns')
 file_listbox = tk.Listbox(window, width=40, selectmode=tk.SINGLE, yscrollcommand=scrollbar.set)
 file_listbox.grid(row=2, column=2, rowspan=6, padx=10, pady=10, sticky='nsew')
 scrollbar.config(command=file_listbox.yview)
-#读取文件内容
+# 读取文件内容
 open_mate_ini()
 
 # 配置行列权重
@@ -246,8 +320,16 @@ frame = tk.Frame(window)
 frame.grid(row=3, column=0, padx=10, pady=10)
 
 # 创建并放置复选框
-subfolders_var = tk.BooleanVar()
+subfolders_var = tk.BooleanVar(value=True)
 subfolders_check = tk.Checkbutton(frame, text="多选", variable=subfolders_var)
 subfolders_check.grid(row=0, column=0, padx=10, pady=10)
 
+# 创建右键菜单
+context_menu = tk.Menu(window, tearoff=0)
+context_menu.add_command(label="打开文件所在位置", command=open_file_location)
+
+# 绑定右键事件到列表框
+file_listbox.bind("<Button-3>", show_context_menu)
+
+# 启动主事件循环
 window.mainloop()
