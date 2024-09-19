@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog
 import os
+import sys
 import shutil
 import re
 import configparser
@@ -166,6 +167,17 @@ def process_remove_obfuscation(file_path):
     处理去除混淆
     :param file_path: 文件路径
     """
+    if getattr(sys, 'frozen', False):
+        folder_path = os.path.dirname(sys.executable)
+    else:
+        folder_path = os.path.dirname(os.path.abspath(__file__))
+        
+    ini_file_path = os.path.join(folder_path, 'head.ini')
+    
+    if not os.path.exists(ini_file_path):
+        # 创建并写入内容
+        with open(ini_file_path, 'w', encoding='utf-8') as file:
+            file.write('55 6E 69 74 79 46 53 00 00 00 00 07 35 2E 78 2E 78 00 32 30 31 39 2E 34 2E 32 35 66 31\n55 6E 69 74 79 46 53 00 00 00 00 07 35 2E 78 2E 78 00 32 30 31 39 2E 34 2E 32 35 11 31\n55 6E 69 74 79 46 53 00 00 00 00 06 35 2E 78 2E 78 00 32 30 31 38 2E 34 2E 33 31 66 31')
     with open("head.ini", 'r', encoding='utf-8') as config_file:
         header_signatures = [bytes.fromhex(line.strip()) for line in config_file if line.strip()]
     find_and_remove_obfuscation(file_path, header_signatures)
@@ -192,6 +204,18 @@ def process_restore_obfuscation(file_path):
     处理还原混淆
     :param file_path: 文件路径
     """
+    if getattr(sys, 'frozen', False):
+        folder_path = os.path.dirname(sys.executable)
+    else:
+        folder_path = os.path.dirname(os.path.abspath(__file__))
+        
+    ini_file_path = os.path.join(folder_path, 'head.ini')
+    
+    if not os.path.exists(ini_file_path):
+        # 创建并写入内容
+        with open(ini_file_path, 'w', encoding='utf-8') as file:
+            file.write('55 6E 69 74 79 46 53 00 00 00 00 07 35 2E 78 2E 78 00 32 30 31 39 2E 34 2E 32 35 66 31\n55 6E 69 74 79 46 53 00 00 00 00 07 35 2E 78 2E 78 00 32 30 31 39 2E 34 2E 32 35 11 31\n55 6E 69 74 79 46 53 00 00 00 00 06 35 2E 78 2E 78 00 32 30 31 38 2E 34 2E 33 31 66 31')
+    
     with open("head.ini", 'r', encoding='utf-8') as config_file:
         header_signatures = [bytes.fromhex(line.strip()) for line in config_file if line.strip()]
     restore_obfuscation(file_path, header_signatures)
@@ -252,6 +276,18 @@ def open_mate_ini():
     打开 "mate.ini" 文件并更新列表框内容
     """
     file_listbox.delete(0, tk.END)
+    if getattr(sys, 'frozen', False):
+        folder_path = os.path.dirname(sys.executable)
+    else:
+        folder_path = os.path.dirname(os.path.abspath(__file__))
+        
+    ini_file_path = os.path.join(folder_path, 'mate.ini')
+    
+    if not os.path.exists(ini_file_path):
+        # 创建并写入内容
+        with open(ini_file_path, 'w', encoding='utf-8') as file:
+            file.write('[MergedFiles]')
+    
     with open("mate.ini", "r", encoding="utf-8") as file:
         for line in file:
             match = re.search(r'-(.*?)-', line)
